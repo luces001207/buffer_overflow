@@ -20,6 +20,31 @@ BUFF_SIZE = NUID % 456
 
 ---
 
+## Lab Prelude: Stack-Based Shellcode Injection
+
+Before the ret2libc project, we completed a classroom lab focused on **traditional stack-based buffer overflow with shellcode injection**. This served as the foundation for understanding how ret2libc improves on the basic technique.
+
+In this lab, a vulnerable program (`extra.c`) accepted a username and password as command-line arguments. The password input had no bounds checking, making it susceptible to overflow. The goal was to inject shellcode directly onto the stack and overwrite the return address to point to it, spawning a root shell.
+
+The attack was carried out by crafting a payload using Python as input:
+
+```bash
+./extra username `python -c "print('payload_here')"`
+```
+
+The payload consisted of a **NOP sled**, the **shellcode** (provided in `shellcode.c`), and a **return address** pointing back into the NOP sled on the stack. When the vulnerable function returned, execution slid through the NOPs and hit the shellcode, which spawned a root shell.
+
+### Why This Matters for ret2libc
+
+This classic approach **requires an executable stack**. If the system enables NX/DEP protections (marking the stack as non-executable), the injected shellcode won't run — the CPU will refuse to execute instructions from that memory region. That limitation is exactly what motivated the ret2libc technique explored in the main project below: instead of injecting code, we reuse code that's already in memory.
+
+| Technique | Injects Code? | Needs Executable Stack? | Bypasses NX/DEP? |
+|---|---|---|---|
+| **Shellcode Injection** | Yes | Yes | No |
+| **Return-to-Libc** | No | No | Yes |
+
+---
+
 ## What Is a Buffer Overflow?
 
 A buffer is a fixed-size block of memory allocated to hold data temporarily. When a program writes more data to a buffer than it was designed to hold, the excess data overwrites adjacent memory — this is a **buffer overflow**.
@@ -226,11 +251,3 @@ Modern exploitation often chains multiple techniques — information leaks to de
 Working through this project reinforced several important concepts for me. First, understanding the stack layout at the assembly level is essential — the entire attack depends on knowing exactly where the return address sits relative to the buffer. Second, ret2libc demonstrates that marking the stack as non-executable is not sufficient on its own; defense-in-depth is necessary because attackers adapt to individual mitigations. Third, small details matter: the length of the compiled binary's filename, the order of ownership changes vs. SUID bit setting, and the choice of shell (`zsh` vs `bash`) all determine whether the attack succeeds or fails.
 
 This project was a great hands-on exercise in thinking like an attacker — understanding not just *that* something is vulnerable, but *why* it's vulnerable and *how* the underlying system mechanics can be manipulated.
-
----
-
-## References
-
-- Aleph One, *Smashing the Stack for Fun and Profit* (Phrack Magazine, 1996)
-- NIST NVD — Buffer Overflow CWE-120
-- MITRE ATT&CK — T1203: Exploitation for Client Execution
